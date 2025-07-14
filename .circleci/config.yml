@@ -1,32 +1,41 @@
-# This config was automatically generated from your source code
-# Stacks detected: deps:node:.
 version: 2.1
-orbs:
-  node: circleci/node@5
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.0
+    working_directory: ~/project
+
 jobs:
-  test-node:
-    # Install node dependencies and run tests
-    executor: node/default
+  regression-tests:
+    executor: node-executor
     steps:
       - checkout
-      - node/install-packages:
-          pkg-manager: npm
+
       - run:
-          name: Run tests
-          command: echo \"No test specified in package.json\"
-  deploy:
-    # This is an example deploy job, not actually used by the workflow
-    docker:
-      - image: cimg/base:stable
-    steps:
-      # Replace this with steps to deploy to users
+          name: Install Dependencies
+          command: npm ci
+
       - run:
-          name: deploy
-          command: '#e.g. ./deploy.sh'
+          name: Run Regression Tests
+          command: npx wdio run wdio.conf.js
+
+      - run:
+          name: Generate Allure Report
+          command: |
+            npm install -g allure-commandline || true
+            allure generate allure-results --clean -o allure-report
+            # You can archive allure-report later if needed
+
 workflows:
-  build-and-test:
+  regression:
+    triggers:
+      - schedule:
+          cron: "15 5 * * *"  # Every day at 5:15 AM UTC (adjust as needed)
+          filters:
+            branches:
+              only:
+                - main
+
     jobs:
-      - test-node
-    # - deploy:
-    #     requires:
-    #       - test-node
+      - regression-tests
