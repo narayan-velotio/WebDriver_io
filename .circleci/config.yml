@@ -1,41 +1,136 @@
 version: 2.1
 
 executors:
-  node-executor:
+  node-chrome-executor:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:20.0-browsers
     working_directory: ~/project
 
 jobs:
-  regression-tests:
-    executor: node-executor
+  install-dependencies:
+    executor: node-chrome-executor
     steps:
       - checkout
-
       - run:
           name: Install Dependencies
           command: npm ci
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - node_modules
 
+  run-tests:
+    executor: node-chrome-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project
       - run:
-          name: Run Regression Tests
+          name: Install Chrome Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y wget unzip
+            # Ensure Chrome is properly installed
+            google-chrome --version
+      - run:
+          name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
-
+          no_output_timeout: 30m
       - run:
           name: Generate Allure Report
           command: |
             npm install -g allure-commandline || true
             allure generate allure-results --clean -o allure-report
-            # You can archive allure-report later if needed
+      - store_artifacts:
+          path: allure-report
+          destination: allure-report
+      - store_artifacts:
+          path: test/screenshots
+          destination: screenshots
+      - store_artifacts:
+          path: test/videos
+          destination: videos
+      - store_test_results:
+          path: test-results
+
+  run-specific-test:
+    executor: node-chrome-executor
+    parameters:
+      test-file:
+        type: string
+        default: "user_registration"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Install Chrome Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y wget unzip
+            google-chrome --version
+      - run:
+          name: Run Specific Test
+          command: npx wdio run wdio.conf.js --spec test/specs/<< parameters.test-file >>.js
+          no_output_timeout: 30m
+      - run:
+          name: Generate Allure Report
+          command: |
+            npm install -g allure-commandline || true
+            allure generate allure-results --clean -o allure-report
+      - store_artifacts:
+          path: allure-report
+          destination: allure-report
+      - store_artifacts:
+          path: test/screenshots
+          destination: screenshots
+      - store_artifacts:
+          path: test/videos
+          destination: videos
 
 workflows:
-  regression:
+  version: 2
+  
+  # Daily regression tests
+  daily-regression:
     triggers:
       - schedule:
-          cron: "15 5 * * *"  # Every day at 5:15 AM UTC (adjust as needed)
+          cron: "0 6 * * *"  # Every day at 6:00 AM UTC
           filters:
             branches:
               only:
                 - main
-
     jobs:
-      - regression-tests
+      - install-dependencies
+      - run-tests:
+          requires:
+            - install-dependencies
+
+  # Manual test runs
+  manual-tests:
+    jobs:
+      - install-dependencies
+      - run-tests:
+          requires:
+            - install-dependencies
+      - run-specific-test:
+          requires:
+            - install-dependencies
+          filters:
+            branches:
+              only:
+                - main
+                - develop
+
+  # Pull request tests
+  pr-tests:
+    jobs:
+      - install-dependencies
+      - run-tests:
+          requires:
+            - install-dependencies
+          filters:
+            branches:
+              ignore:
+                - main
+                - develop
