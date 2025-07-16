@@ -37,7 +37,7 @@ jobs:
       - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
-          no_output_timeout: 30m
+          no_output_timeout: 10m
       - run:
           name: Generate Allure Report
           command: |
@@ -74,7 +74,7 @@ jobs:
       - run:
           name: Run Specific Test
           command: npx wdio run wdio.conf.js --spec test/specs/<< parameters.test-file >>.js
-          no_output_timeout: 30m
+          no_output_timeout: 10m
       - run:
           name: Generate Allure Report
           command: |
