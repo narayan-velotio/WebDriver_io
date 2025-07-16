@@ -3,14 +3,14 @@ version: 2.1
 executors:
   node-chrome-executor:
     docker:
-      - image: cimg/node:20.0-browsers
+      - image: cimg/node:20.11-browsers
     working_directory: ~/project
     environment:
       CHROME_BIN: /usr/bin/google-chrome
   
   node-chrome-alternative:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:20.11
     working_directory: ~/project
     environment:
       CHROME_BIN: /usr/bin/google-chrome
@@ -22,7 +22,10 @@ jobs:
       - checkout
       - run:
           name: Install Dependencies
-          command: npm ci
+          command: |
+            node --version
+            npm --version
+            npm ci
       - persist_to_workspace:
           root: ~/project
           paths:
@@ -59,6 +62,13 @@ jobs:
             google-chrome --version
             # Test headless mode
             google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --version
+      - run:
+          name: Update npm and verify Node.js
+          command: |
+            node --version
+            npm --version
+            npm update -g npm
+            npm --version
       - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
@@ -113,6 +123,13 @@ jobs:
             fi
             google-chrome --version
       - run:
+          name: Update npm and verify Node.js
+          command: |
+            node --version
+            npm --version
+            npm update -g npm
+            npm --version
+      - run:
           name: Run Specific Test
           command: npx wdio run wdio.conf.js --spec test/specs/<< parameters.test-file >>.js
           no_output_timeout: 10m
@@ -148,6 +165,13 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y google-chrome-stable
             google-chrome --version
+      - run:
+          name: Update npm and verify Node.js
+          command: |
+            node --version
+            npm --version
+            npm update -g npm
+            npm --version
       - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
