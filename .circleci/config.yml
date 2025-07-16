@@ -5,6 +5,15 @@ executors:
     docker:
       - image: cimg/node:20.0-browsers
     working_directory: ~/project
+    environment:
+      CHROME_BIN: /usr/bin/google-chrome
+  
+  node-chrome-alternative:
+    docker:
+      - image: cimg/node:20.0
+    working_directory: ~/project
+    environment:
+      CHROME_BIN: /usr/bin/google-chrome
 
 jobs:
   install-dependencies:
@@ -30,9 +39,25 @@ jobs:
           command: |
             sudo apt-get update
             sudo apt-get install -y wget unzip
-            # Ensure Chrome is properly installed
+            # Check for different Chrome command names
+            if command -v google-chrome &> /dev/null; then
+              echo "Google Chrome found: $(google-chrome --version)"
+            elif command -v chromium-browser &> /dev/null; then
+              echo "Chromium found: $(chromium-browser --version)"
+              sudo ln -sf /usr/bin/chromium-browser /usr/bin/google-chrome
+            elif command -v chromium &> /dev/null; then
+              echo "Chromium found: $(chromium --version)"
+              sudo ln -sf /usr/bin/chromium /usr/bin/google-chrome
+            else
+              # Install Chrome if not found
+              wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+              echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+              sudo apt-get update
+              sudo apt-get install -y google-chrome-stable
+            fi
+            # Verify Chrome is available
             google-chrome --version
-            # Set up Chrome for headless testing
+            # Test headless mode
             google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --version
       - run:
           name: Run WebDriverIO Tests
@@ -70,6 +95,22 @@ jobs:
           command: |
             sudo apt-get update
             sudo apt-get install -y wget unzip
+            # Check for different Chrome command names
+            if command -v google-chrome &> /dev/null; then
+              echo "Google Chrome found: $(google-chrome --version)"
+            elif command -v chromium-browser &> /dev/null; then
+              echo "Chromium found: $(chromium-browser --version)"
+              sudo ln -sf /usr/bin/chromium-browser /usr/bin/google-chrome
+            elif command -v chromium &> /dev/null; then
+              echo "Chromium found: $(chromium --version)"
+              sudo ln -sf /usr/bin/chromium /usr/bin/google-chrome
+            else
+              # Install Chrome if not found
+              wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+              echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+              sudo apt-get update
+              sudo apt-get install -y google-chrome-stable
+            fi
             google-chrome --version
       - run:
           name: Run Specific Test
@@ -90,6 +131,34 @@ jobs:
           path: test/videos
           destination: videos
 
+  run-tests-fallback:
+    executor: node-chrome-alternative
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Install Chrome Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y wget unzip
+            # Install Chrome
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            sudo apt-get update
+            sudo apt-get install -y google-chrome-stable
+            google-chrome --version
+      - run:
+          name: Run WebDriverIO Tests
+          command: npx wdio run wdio.conf.js
+          no_output_timeout: 10m
+      - store_artifacts:
+          path: allure-report
+          destination: allure-report
+      - store_artifacts:
+          path: test/screenshots
+          destination: screenshots
+
 workflows:
   version: 2
   
@@ -107,6 +176,13 @@ workflows:
       - run-tests:
           requires:
             - install-dependencies
+      - run-tests-fallback:
+          requires:
+            - install-dependencies
+          filters:
+            branches:
+              only:
+                - main
 
   # Manual test runs
   manual-tests:
