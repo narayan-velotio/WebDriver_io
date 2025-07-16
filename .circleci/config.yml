@@ -32,6 +32,8 @@ jobs:
             sudo apt-get install -y wget unzip
             # Ensure Chrome is properly installed
             google-chrome --version
+            # Set up Chrome for headless testing
+            google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --version
       - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
