@@ -25,6 +25,8 @@ jobs:
           command: |
             node --version
             npm --version
+            npm cache clean --force
+            rm -rf node_modules package-lock.json
             npm ci
       - persist_to_workspace:
           root: ~/project
@@ -67,8 +69,7 @@ jobs:
           command: |
             node --version
             npm --version
-            npm update -g npm
-            npm --version
+            npm cache clean --force
       - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
@@ -127,8 +128,7 @@ jobs:
           command: |
             node --version
             npm --version
-            npm update -g npm
-            npm --version
+            npm cache clean --force
       - run:
           name: Run Specific Test
           command: npx wdio run wdio.conf.js --spec test/specs/<< parameters.test-file >>.js
@@ -170,8 +170,7 @@ jobs:
           command: |
             node --version
             npm --version
-            npm update -g npm
-            npm --version
+            npm cache clean --force
       - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
