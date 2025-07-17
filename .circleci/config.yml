@@ -5,15 +5,6 @@ executors:
     docker:
       - image: cimg/node:20.11-browsers
     working_directory: ~/project
-    environment:
-      CHROME_BIN: /usr/bin/google-chrome
-  
-  node-chrome-alternative:
-    docker:
-      - image: cimg/node:20.11
-    working_directory: ~/project
-    environment:
-      CHROME_BIN: /usr/bin/google-chrome
 
 jobs:
   install-dependencies:
@@ -22,12 +13,7 @@ jobs:
       - checkout
       - run:
           name: Install Dependencies
-          command: |
-            node --version
-            npm --version
-            npm cache clean --force
-            rm -rf node_modules package-lock.json
-            npm install
+          command: npm install
       - persist_to_workspace:
           root: ~/project
           paths:
@@ -65,12 +51,6 @@ jobs:
             # Test headless mode
             google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --version
       - run:
-          name: Update npm and verify Node.js
-          command: |
-            node --version
-            npm --version
-            npm cache clean --force
-      - run:
           name: Run WebDriverIO Tests
           command: npx wdio run wdio.conf.js
           no_output_timeout: 10m
@@ -88,8 +68,6 @@ jobs:
       - store_artifacts:
           path: test/videos
           destination: videos
-      - store_test_results:
-          path: test-results
 
   run-specific-test:
     executor: node-chrome-executor
@@ -124,12 +102,6 @@ jobs:
             fi
             google-chrome --version
       - run:
-          name: Update npm and verify Node.js
-          command: |
-            node --version
-            npm --version
-            npm cache clean --force
-      - run:
           name: Run Specific Test
           command: npx wdio run wdio.conf.js --spec test/specs/<< parameters.test-file >>.js
           no_output_timeout: 10m
@@ -148,40 +120,6 @@ jobs:
           path: test/videos
           destination: videos
 
-  run-tests-fallback:
-    executor: node-chrome-alternative
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/project
-      - run:
-          name: Install Chrome Dependencies
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y wget unzip
-            # Install Chrome
-            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-            sudo apt-get update
-            sudo apt-get install -y google-chrome-stable
-            google-chrome --version
-      - run:
-          name: Update npm and verify Node.js
-          command: |
-            node --version
-            npm --version
-            npm cache clean --force
-      - run:
-          name: Run WebDriverIO Tests
-          command: npx wdio run wdio.conf.js
-          no_output_timeout: 10m
-      - store_artifacts:
-          path: allure-report
-          destination: allure-report
-      - store_artifacts:
-          path: test/screenshots
-          destination: screenshots
-
 workflows:
   version: 2
   
@@ -199,13 +137,6 @@ workflows:
       - run-tests:
           requires:
             - install-dependencies
-      - run-tests-fallback:
-          requires:
-            - install-dependencies
-          filters:
-            branches:
-              only:
-                - main
 
   # Manual test runs
   manual-tests:
